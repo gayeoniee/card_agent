@@ -121,3 +121,38 @@ def test_사진에_알파가_없어도_넣을_수_있다(tmp_path, cards_dir, mo
     pipeline.run(photo, "네옹", date(2023, 5, 14),
                  out_dir=tmp_path / "out", cards_dir=cards_dir)
     assert calls["called"]
+
+
+def test_mock_음악까지_붙으면_bgm_이_난다(tmp_path, cards_dir):
+    from src.music.mock import MockMusic
+
+    result = pipeline.run(
+        fake_dog(), "네옹", date(2023, 5, 14), out_dir=tmp_path / "out",
+        cards_dir=cards_dir, music=MockMusic(), music_seconds=4,
+    )
+    assert result.bgm_path is not None and result.bgm_path.exists()
+    assert result.doc.scene.bgm == "bgm.ogg"
+
+
+def test_음악이_실패해도_카드는_나온다(tmp_path, cards_dir):
+    """⑦만 네트워크·유료다. 여기서 죽으면 설계가 틀린 것이다."""
+    from src.music.mock import FailingMusic
+
+    result = pipeline.run(
+        fake_dog(), "네옹", date(2023, 5, 14), out_dir=tmp_path / "out",
+        cards_dir=cards_dir, music=FailingMusic(),
+    )
+    assert result.bgm_path is None
+    assert result.doc.scene.bgm is None
+    assert result.card_path.exists() and result.scene_path.exists()
+
+
+def test_CLI_의_mock_음악_옵션이_돈다(tmp_path, cards_dir):
+    photo = tmp_path / "dog.png"
+    fake_dog().save(photo)
+    assert pipeline.main([
+        "--photo", str(photo), "--name", "코코", "--birthday", "2022-09-02",
+        "--out", str(tmp_path / "out"), "--assets", str(cards_dir),
+        "--music", "mock", "--seconds", "4",
+    ]) == 0
+    assert (tmp_path / "out" / "bgm.ogg").exists()
