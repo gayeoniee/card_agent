@@ -51,6 +51,35 @@ uv sync --extra cutout
 없으면 `cutout.py` 가 곱게 실패한다 — 알파가 이미 있는 PNG 를 넣으면 누끼 없이도
 나머지 파이프라인은 그대로 돈다.
 
+## 서비스로 쓸 때
+
+생성이 느리므로 **동기로 기다리지 않는다.** 접수하고 job id 를 주고, 상태는
+물어보게 한다. 기다리게 했다가는 nginx 60초 타임아웃에 걸려 우리가 내지 않은 HTML
+오류 페이지를 사용자가 받는다 (D-021 이 `/ask` 예열에서 실측한 함정).
+
+```
+POST /cards               photo(파일) · name · birthday(YYYY-MM-DD)  → 202 {id, status_url}
+GET  /cards/{id}          queued / running / done / failed  (설비가 없으면 503)
+GET  /cards/{id}/files/…  card.webp · subject.webp · scene.json · bgm.ogg
+GET  /healthz             누끼 설비·음악 provider·원화 유무
+```
+
+`--mock` 이면 음악은 mock 이고, 카드 원화가 없으면 자리표 카드를 만들어 쓴다.
+그래서 아무 설비 없이도 파이프라인 전체가 도는지 볼 수 있다.
+
+## 지금 비어 있는 것
+
+- **카드 12장의 실제 값** — `templates/crops.toml` 에서 확인된 것은 배추 = No.01
+  하나뿐이다. 나머지 `no`·`name`·`statLabel`·`stat`·`foil` 은 자리값이다
+- **그림창 좌표 11장** — `templates/windows.toml` 은 배추 값만 앱에서 왔고, 나머지는
+  같은 배치를 가정한 자리값이다. 카드 원화를 놓고 한 번씩 재야 한다
+- **앱의 `seedOf` 대조** — Kotlin `String.hashCode` 규약으로 구현했고 앱 구현을 직접
+  보고 맞춘 것은 아니다 (CA-007). 다르면 `src/scene.py` 의 `seed_of` 한 함수만 고친다
+- **음악 서비스** — 지금은 mock 뿐이다. 실제 연동은 별도 카드이고 첫 항목은 상업 이용
+  라이선스 확인이다
+- **강아지 테이블** — 이름·생일을 담을 DB 스키마가 아직 없어서 씨의 재료로
+  `"이름:생일"` 을 쓴다
+
 ## 사람이 봐야 하는 곳
 
 그림 판단은 AI 에게 위임하지 않는다 (앱 협업규칙 1절). 다음 둘은 **만들어서 봐야**
