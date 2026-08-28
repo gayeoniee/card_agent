@@ -13,7 +13,9 @@
 """
 
 import argparse
+import io
 import os
+import shutil
 import threading
 import traceback
 import uuid
@@ -25,9 +27,11 @@ import uvicorn
 from fastapi import FastAPI, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from PIL import Image, ImageDraw, UnidentifiedImageError
+from pydantic import ValidationError
 
 from src import pipeline
 from src.compose import CARDS_DIR, CardArtMissing, load_windows
+from src.contract import Dog
 from src.cutout import CutoutUnavailable
 from src.pixelize import DEFAULT_STYLE, style_by_name
 from src.version import agent_version
@@ -66,15 +70,22 @@ class Jobs:
             return dict(job) if job else None
 
 
-def placeholder_cards(into: Path) -> Path:
-    """mock 전용 임시 원화. 카드 원화는 git 밖이라 없을 수 있다.
+def placeholder_cards(into: Path, real: Path | None = None) -> Path:
+    """mock 전용 원화 폴더를 채운다. 카드 원화는 git 밖이라 없을 수 있다.
 
-    진짜 카드로 오해하지 않도록 대놓고 PLACEHOLDER 라고 적어 둔다.
+    카드 **한 장씩** 본다. 폴더가 있는지로 가르면, 확인된 배추 원화 한 장만 들어
+    있는 폴더에서 나머지 11달이 503 으로 죽는다 — "설비 없이도 돈다" 는 약속이
+    거기서 깨진다.
+
+    진짜 카드로 오해하지 않도록 자리표에는 대놓고 PLACEHOLDER 라고 적어 둔다.
     """
     into.mkdir(parents=True, exist_ok=True)
     for card_id, template in load_windows().items():
         path = into / template.frame
-        if path.exists():
+        source = (real / template.frame) if real is not None else None
+        if source is not None and source.exists():
+            # 진짜 원화가 있으면 그것을 쓴다. 매번 다시 복사해서 자리표가 남지 않게 한다.
+            shutil.copyfile(source, path)
             continue
         size = (600, 840)
         frame = Image.new("RGBA", size, (26, 48, 30, 255))
@@ -98,7 +109,7 @@ def create_app(*, cards_dir: Path, out_dir: Path, style_name: str = DEFAULT_STYL
 
     music_kind = "mock" if mock else "none"
     if mock:
-        cards_dir = placeholder_cards(out_dir / "_placeholder-cards") if not cards_dir.exists() else cards_dir
+        cards_dir = placeholder_cards(out_dir / "_placeholder-cards", cards_dir)
 
     def work(job_id: str, photo_path: Path, name: str, birthday: date):
         jobs.update(job_id, status="running")
@@ -140,31 +151,36 @@ def create_app(*, cards_dir: Path, out_dir: Path, style_name: str = DEFAULT_STYL
 
     @app.post("/cards", status_code=202)
     async def create_card(photo: UploadFile, name: str = Form(...), birthday: str = Form(...)):
-        """접수만 하고 바로 돌려준다. 기다리게 하지 않는다 (D-021)."""
+        """접수만 하고 바로 돌려준다. 기다리게 하지 않는다 (D-021).
+
+        받는 값은 계약(`src/contract.py`)에 그대로 물어본다. 길이 제한 같은 숫자를
+        여기에 또 적으면 계약이 두 곳이 된다 (CA-003). 여기서 안 거르면 이름이 긴
+        경우 파이프라인을 다 돌리고 — 유료인 ⑦까지 — 마지막 SceneDoc 에서야 죽는다.
+        """
         try:
-            when = date.fromisoformat(birthday)
-        except ValueError:
-            raise HTTPException(400, "birthday 는 YYYY-MM-DD 여야 한다") from None
-        if not name.strip():
-            raise HTTPException(400, "name 이 비었다")
+            dog = Dog(name=name.strip(), birthday=birthday)
+        except ValidationError as exc:
+            raise HTTPException(400, f"name·birthday 가 계약에 안 맞는다: {exc.error_count()}건") from None
 
         blob = await photo.read()
         if not blob:
             raise HTTPException(400, "photo 가 비었다")
         if len(blob) > MAX_PHOTO_BYTES:
             raise HTTPException(413, f"사진이 너무 크다 ({len(blob)} bytes)")
+        try:
+            # 일감을 만들기 **전에** 본다. 뒤에 보면 거절한 요청마다 queued 인 일감과
+            # 폴더가 하나씩 남는다.
+            Image.open(io.BytesIO(blob)).verify()
+        except (UnidentifiedImageError, OSError):
+            raise HTTPException(400, "사진을 읽지 못했다") from None
 
         job_id = jobs.create()
         job_dir = out_dir / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
         photo_path = job_dir / "photo.bin"
         photo_path.write_bytes(blob)
-        try:
-            Image.open(photo_path).verify()
-        except (UnidentifiedImageError, OSError):
-            raise HTTPException(400, "사진을 읽지 못했다") from None
 
-        pool.submit(work, job_id, photo_path, name.strip(), when)
+        pool.submit(work, job_id, photo_path, dog.name, dog.birthday)
         return {"id": job_id, "status": "queued", "status_url": f"/cards/{job_id}"}
 
     @app.get("/cards/{job_id}")
@@ -179,6 +195,10 @@ def create_app(*, cards_dir: Path, out_dir: Path, style_name: str = DEFAULT_STYL
 
     @app.get("/cards/{job_id}/files/{filename}")
     def read_file(job_id: str, filename: str):
+        if jobs.get(job_id) is None:
+            # 아는 일감의 id 로만 경로를 짓는다. 받은 문자열을 그대로 이어 붙이면
+            # ".." 같은 것이 섞여 out_dir 바깥 파일이 나간다.
+            raise HTTPException(404, "그런 일감이 없다")
         if filename not in SERVED_FILES:
             raise HTTPException(404, "그런 파일은 안 준다")
         path = out_dir / job_id / filename

@@ -167,3 +167,62 @@ def test_어노테이션을_문자열로_만들지_않는다():
         for alias in node.names
     ]
     assert "annotations" not in futures
+
+
+def test_일감_id_로_바깥_파일을_꺼낼_수_없다(client, tmp_path):
+    """받은 문자열을 그대로 경로로 이으면 out_dir 바깥이 나간다."""
+    (tmp_path / "out").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "out" / "scene.json").write_text('{"몰래":"가져가면 안 되는 것"}', encoding="utf-8")
+
+    for 나쁜_id in ("..", "%2e%2e", "../..", "a/../.."):
+        res = client.get(f"/cards/{나쁜_id}/files/scene.json")
+        assert res.status_code == 404, (나쁜_id, res.status_code, res.text)
+
+
+def test_모르는_일감의_파일은_안_준다(client):
+    assert client.get("/cards/0123456789ab/files/card.webp").status_code == 404
+
+
+def test_이름이_계약보다_길면_접수에서_거절한다(client, tmp_path):
+    """여기서 안 거르면 유료인 음악 단계까지 다 돌고 마지막에야 죽는다."""
+    res = client.post("/cards", files={"photo": ("dog.png", png_bytes(), "image/png")},
+                      data={"name": "네" * 21, "birthday": "2023-05-14"})
+    assert res.status_code == 400
+    assert not [p for p in (tmp_path / "out").iterdir() if p.name != "_placeholder-cards"]
+
+
+def test_거절한_요청은_일감도_파일도_안_남긴다(client, tmp_path):
+    쓰레기 = "이건 사진이 아니다".encode("utf-8")
+    for _ in range(5):
+        res = client.post("/cards", files={"photo": ("dog.png", 쓰레기, "image/png")},
+                          data={"name": "네옹", "birthday": "2023-05-14"})
+        assert res.status_code == 400
+    남은_것 = [p for p in (tmp_path / "out").iterdir() if p.name != "_placeholder-cards"]
+    assert 남은_것 == []
+
+
+def test_원화가_한_장만_있어도_열두달이_다_돈다(tmp_path):
+    """확인된 배추 원화만 있는 폴더에서 나머지 11달이 503 으로 죽으면 안 된다."""
+    cards = tmp_path / "cards"
+    cards.mkdir()
+    배추 = template_for("baechu")
+    fake_frame(배추.window).save(cards / 배추.frame)
+
+    app = serve.create_app(cards_dir=cards, out_dir=tmp_path / "out", mock=True)
+    with TestClient(app) as client:
+        for 생일, 카드 in (("2023-12-03", "baechu"), ("2023-05-14", "danhobak")):
+            res = client.post("/cards", files={"photo": ("dog.png", png_bytes(), "image/png")},
+                              data={"name": "네옹", "birthday": 생일})
+            job = wait(client, res.json()["id"])
+            assert job["scene"]["card"]["id"] == 카드
+
+
+def test_진짜_원화가_있으면_자리표_대신_그것을_쓴다(tmp_path):
+    cards = tmp_path / "cards"
+    cards.mkdir()
+    배추 = template_for("baechu")
+    fake_frame(배추.window).save(cards / 배추.frame)
+
+    serve.create_app(cards_dir=cards, out_dir=tmp_path / "out", mock=True)
+    복사본 = tmp_path / "out" / "_placeholder-cards" / 배추.frame
+    assert 복사본.read_bytes() == (cards / 배추.frame).read_bytes()
