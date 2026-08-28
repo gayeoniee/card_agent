@@ -1,0 +1,135 @@
+# 생일 월 → 작물 카드 12장. 룰 테이블이지 모델이 아니다.
+#
+# 카드가 정확히 12장이라 월과 1:1 로 떨어진다. 고치기 쉬우라고 코드가 아니라
+# 데이터로 뺐다 — 값을 바꾸면 src/crops.py 가 그대로 읽는다.
+#
+# ⚠ 확인된 값은 배추 = No.01 하나뿐이다 (앱의 이머시브가 No.01 배추다).
+#   나머지 11장의 no·name·statLabel·stat·foil 은 실제 DexCard 목록을 손에 넣기 전의
+#   자리값이다. 앱 레포의 카드 12장 정의가 오면 여기만 고치면 된다 — 파이프라인은
+#   건드릴 것이 없다.
+#
+# month  : 생일 월 (1~12, 12개가 빠짐없이 한 번씩)
+# no     : 도감 번호 (1~12, 겹치지 않게)
+# id     : scene.json 의 card.id
+# name   : 카드에 찍히는 이름
+# statLabel / stat / foil : DexCard 와 같은 이름의 값
+
+[[crop]]
+month = 1
+no = 2
+id = "sigeumchi"
+korean = "시금치"
+name = "Sigeumchi Neo"
+statLabel = "LEAF"
+stat = 760
+foil = "Frost"
+
+[[crop]]
+month = 2
+no = 3
+id = "daepa"
+korean = "대파"
+name = "Daepa Neo"
+statLabel = "SNAP"
+stat = 720
+foil = "Pearl"
+
+[[crop]]
+month = 3
+no = 4
+id = "buchu"
+korean = "부추"
+name = "Buchu Neo"
+statLabel = "SPRING"
+stat = 690
+foil = "Mint"
+
+[[crop]]
+month = 4
+no = 6
+id = "sangchu"
+korean = "상추"
+name = "Sangchu Neo"
+statLabel = "FRESH"
+stat = 730
+foil = "Dew"
+
+[[crop]]
+month = 5
+no = 5
+id = "danhobak"
+korean = "단호박"
+name = "Danhobak Neo"
+statLabel = "CRUNCH"
+stat = 840
+foil = "Oilslick"
+
+[[crop]]
+month = 6
+no = 7
+id = "oi"
+korean = "오이"
+name = "Oi Neo"
+statLabel = "JUICY"
+stat = 700
+foil = "Aqua"
+
+[[crop]]
+month = 7
+no = 8
+id = "oksusu"
+korean = "옥수수"
+name = "Oksusu Neo"
+statLabel = "POP"
+stat = 880
+foil = "Gold"
+
+[[crop]]
+month = 8
+no = 9
+id = "gaji"
+korean = "가지"
+name = "Gaji Neo"
+statLabel = "GLOSS"
+stat = 810
+foil = "Prism"
+
+[[crop]]
+month = 9
+no = 10
+id = "goguma"
+korean = "고구마"
+name = "Goguma Neo"
+statLabel = "SWEET"
+stat = 860
+foil = "Ember"
+
+[[crop]]
+month = 10
+no = 11
+id = "danggeun"
+korean = "당근"
+name = "Danggeun Neo"
+statLabel = "ROOT"
+stat = 790
+foil = "Rust"
+
+[[crop]]
+month = 11
+no = 12
+id = "mu"
+korean = "무"
+name = "Mu Neo"
+statLabel = "BITE"
+stat = 750
+foil = "Dusk"
+
+[[crop]]
+month = 12
+no = 1
+id = "baechu"
+korean = "배추"
+name = "Baechu Neo"
+statLabel = "CHILL"
+stat = 820
+foil = "Aurora"
