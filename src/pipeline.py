@@ -73,9 +73,13 @@ def run(
     # ④⑤ 화풍 맞춤 + 카드 합성 (fit 은 여기서 나온다)
     template = template_for(crop.id)
     frame = open_frame(template, cards_dir)
+    # 뒷그림이 있으면 구멍 배경으로 깐다. 없으면 구멍이 비어 검게 보인다.
+    back_path = Path(cards_dir) / f"{crop.id}-back.webp"
+    back = Image.open(back_path).convert("RGBA") if back_path.exists() else None
     composed = compose_card(
-        frame, cut.image, template.window,
+        frame, cut.image, template.art,
         style=style, corner_radius_pct=CORNER_RADIUS_PCT,
+        inset=template.inset, anchor_y=template.anchor_y, back=back,
     )
 
     card_path = save_webp(composed.card, out_dir / CARD_FILE)
@@ -94,9 +98,11 @@ def run(
         accent=coat.accent,
         accent2=coat.accent2,
         fit=composed.fit,
-        window=composed.window,
+        # 창 연출 좌표는 앱이 정한 상수라 그대로 넘긴다 — 우리가 계산하는 값이 아니다.
+        window=template.window,
         card=CARD_FILE,
         subject=SUBJECT_FILE,
+        back=back_path.name if back is not None else None,
         frame=template.frame,
         bgm=BGM_FILE if bgm_path else None,
         dog_key=dog_key,

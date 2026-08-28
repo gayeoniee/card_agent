@@ -67,12 +67,30 @@ GET  /healthz             누끼 설비·음악 provider·원화 유무
 `--mock` 이면 음악은 mock 이고, 카드 원화가 없으면 자리표 카드를 만들어 쓴다.
 그래서 아무 설비 없이도 파이프라인 전체가 도는지 볼 수 있다.
 
+## 카드 원화는 어디에 있나
+
+`SAJOYO/DAENGS_CARDS` (공개) 의 `art/` 다. 원화는 git 밖에 두므로 거기서 받아
+`templates/cards/` 에 넣는다.
+
+```bash
+git clone --depth 1 https://github.com/SAJOYO/DAENGS_CARDS /tmp/cards
+cp /tmp/cards/art/cabbage-*.webp templates/cards/
+```
+
+그림창 좌표는 **재지 않는다.** 원화가 그림 영역만 투명하게 지운 완성 카드라
+알파의 구멍이 곧 좌표다.
+
+```bash
+uv run python tools/art_window.py templates/cards/*-card-frame.webp
+```
+
 ## 지금 비어 있는 것
 
-- **카드 12장의 실제 값** — `templates/crops.toml` 에서 확인된 것은 배추 = No.01
-  하나뿐이다. 나머지 `no`·`name`·`statLabel`·`stat`·`foil` 은 자리값이다
-- **그림창 좌표 11장** — `templates/windows.toml` 은 배추 값만 앱에서 왔고, 나머지는
-  같은 배치를 가정한 자리값이다. 카드 원화를 놓고 한 번씩 재야 한다
+- **⚠ 그림창이 뚫린 프레임은 배추 한 장뿐이다.** 나머지 11장은 도감의 `art/*.webp`
+  가 그림·프레임·인쇄문구가 한 장에 다 구워진 통짜라 사진을 얹을 구멍이 없다.
+  **지금 실제로 뽑을 수 있는 카드는 12월생(배추) 하나다**
+- **`inset`·`anchor_y`** — 배추만 앱 배치에 맞춰 뒀다. 나머지는 "꽉 채워 가운데"
+  기본값이고, 프레임이 생기면 카드마다 사람이 봐야 한다
 - **앱의 `seedOf` 대조** — Kotlin `String.hashCode` 규약으로 구현했고 앱 구현을 직접
   보고 맞춘 것은 아니다 (CA-007). 다르면 `src/scene.py` 의 `seed_of` 한 함수만 고친다
 - **음악 서비스** — 지금은 mock 뿐이다. 실제 연동은 별도 카드이고 첫 항목은 상업 이용

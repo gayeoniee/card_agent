@@ -37,7 +37,10 @@ class Card(Base):
     no: int = Field(ge=1, le=12)
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
-    stat_label: str = Field(min_length=1, alias="statLabel")
+    # 빈 문자열을 받는다. No.11 Tomato 는 그림에 스탯 라벨이 안 찍혀 있고, 도감은
+    # "안 찍혀 있으면 지어내지 말고 비운다" 를 규칙으로 삼았다. min_length=1 로 막으면
+    # 실제 카드가 계약에서 거절당한다.
+    stat_label: str = Field(alias="statLabel")
     stat: int = Field(ge=0)
     foil: str = Field(min_length=1)
     art: str = Field(min_length=1)

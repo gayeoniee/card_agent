@@ -18,19 +18,27 @@ def test_도감번호와_id_가_겹치지_않는다():
 
 def test_배추는_No_01_이다():
     """앱의 이머시브가 No.01 배추다 — 표에서 확인된 유일한 값."""
-    baechu = next(c for c in load_table().values() if c.id == "baechu")
+    baechu = next(c for c in load_table().values() if c.id == "cabbage")
     assert baechu.no == 1
 
 
 def test_5월생은_단호박_카드다():
+    """도감의 실제 카드 값이다 — 지어낸 값이 아니라 cards.mjs 에서 왔다."""
     crop = crop_for_birthday(date(2023, 5, 14))
     assert (crop.no, crop.id, crop.stat_label, crop.stat, crop.foil) == (
         5,
         "danhobak",
         "CRUNCH",
         840,
-        "Oilslick",
+        "oilslick",
     )
+
+
+def test_토마토는_스탯_라벨이_비어_있다():
+    """그림에 안 찍혀 있으면 지어내지 않는다. 계약도 빈 문자열을 받아야 한다."""
+    tomato = next(c for c in load_table().values() if c.id == "tomato")
+    assert tomato.stat_label == ""
+    assert tomato.to_card(art="card.webp").stat_label == ""
 
 
 def test_연도와_날짜는_카드를_바꾸지_않는다():
