@@ -5,6 +5,7 @@
 """
 
 import io
+import zlib
 
 import numpy as np
 import soundfile as sf
@@ -28,7 +29,9 @@ class MockMusic:
 
         n = int(self.sample_rate * seconds)
         t = np.arange(n, dtype=np.float64) / self.sample_rate
-        rng = np.random.default_rng(abs(hash(prompt)) % (1 << 32))
+        # 파이썬의 hash() 는 프로세스마다 씨가 달라서(PYTHONHASHSEED) 같은 프롬프트로도
+        # 매번 다른 소리가 난다. 프로세스를 넘어 같은 값이 나오는 crc32 를 쓴다.
+        rng = np.random.default_rng(zlib.crc32(prompt.encode("utf-8")))
 
         wave = np.zeros(n, dtype=np.float64)
         for i, hz in enumerate(CHORD_HZ):

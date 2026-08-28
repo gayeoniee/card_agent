@@ -126,15 +126,21 @@ def _card_month(card_id: str) -> int:
 
 
 def _make_music(music, out_dir: Path, crop: Crop, name: str, seconds: int) -> Path | None:
-    """음악만은 실패해도 카드를 세운다. 여기서 삼키는 유일한 예외다."""
-    from src.loop import LoopError, write_loop_ogg
-    from src.music.base import MusicUnavailable, prompt_for
+    """음악만은 실패해도 카드를 세운다. 여기서 삼키는 유일한 예외다.
+
+    예외 종류를 좁히지 않는다. provider 는 아직 없는 물건이라 실제 서비스가 붙으면
+    타임아웃·연결 끊김·라이브러리 고유 예외가 무엇으로든 올라온다. 그중 하나라도
+    빠져나가면 card.webp·subject.webp 는 이미 쓰인 뒤 scene.json 만 없는 상태로
+    죽는다 — CA-009 가 막으려던 바로 그 경우다.
+    """
+    from src.loop import write_loop_ogg
+    from src.music.base import prompt_for
 
     try:
         wav = music.generate(prompt_for(crop.korean, name), seconds)
         return write_loop_ogg(wav, out_dir / BGM_FILE)
-    except (MusicUnavailable, LoopError) as exc:
-        print(f"음악 없이 간다: {exc}", file=sys.stderr)
+    except Exception as exc:
+        print(f"음악 없이 간다: {type(exc).__name__}: {exc}", file=sys.stderr)
         return None
 
 

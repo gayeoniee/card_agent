@@ -44,3 +44,23 @@ def test_프롬프트에_작물과_이름이_들어간다():
 def test_바이트를_그대로_저장한다(tmp_path):
     path = save_bytes(b"1234", tmp_path / "a" / "bgm.wav")
     assert path.read_bytes() == b"1234"
+
+
+def test_프로세스를_새로_띄워도_같은_소리다():
+    """파이썬 hash() 는 프로세스마다 씨가 달라서 그걸로 씨를 잡으면 매번 달라진다."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    here = Path(__file__).resolve().parent.parent
+    code = (
+        "import sys, hashlib; sys.path.insert(0, %r);"
+        "from src.music.mock import MockMusic;"
+        "print(hashlib.sha256(MockMusic().generate('네옹', 1)).hexdigest())" % str(here)
+    )
+    앞 = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    뒤 = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert 앞.stdout == 뒤.stdout
+    import hashlib
+
+    assert 앞.stdout.strip() == hashlib.sha256(MockMusic().generate("네옹", 1)).hexdigest()

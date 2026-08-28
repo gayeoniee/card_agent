@@ -156,3 +156,18 @@ def test_CLI_의_mock_음악_옵션이_돈다(tmp_path, cards_dir):
         "--music", "mock", "--seconds", "4",
     ]) == 0
     assert (tmp_path / "out" / "bgm.ogg").exists()
+
+
+def test_음악이_무슨_예외로_죽어도_카드는_나온다(tmp_path, cards_dir):
+    """provider 는 아직 없는 물건이라 무엇으로 실패할지 모른다 — 타임아웃도 카드를 못 막는다."""
+
+    class 터지는Provider:
+        def generate(self, prompt, seconds):
+            raise TimeoutError("실제 서비스가 낼 법한 예외")
+
+    result = pipeline.run(
+        fake_dog(), "네옹", date(2023, 5, 14), out_dir=tmp_path / "out",
+        cards_dir=cards_dir, music=터지는Provider(),
+    )
+    assert result.bgm_path is None
+    assert result.scene_path.exists() and result.doc.scene.bgm is None
