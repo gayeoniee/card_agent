@@ -1,0 +1,23 @@
+# 강아지 사진과 생성물은 커밋하지 않는다
+photos/
+out/
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.ogg
+*.wav
+*.mp3
+
+# 누끼 모델 가중치 (rembg 가 받아 두는 것)
+.u2net/
+models/
+
+# 카드 원화 — git 밖에 둔다 (DAENGS_dev/tools/art-src 와 같은 취급)
+templates/cards/
+
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
