@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
+import numpy as np
 from PIL import Image, ImageDraw
 
 from src.contract import Rect
@@ -108,34 +109,6 @@ def template_for(card_id: str, path: Path = WINDOWS_TOML) -> CardTemplate:
         raise WindowTableError(f"{path}: 모르는 카드다: {card_id}") from None
 
 
-def extract_art_window(frame: Image.Image, *, threshold: int = 200) -> Rect:
-    """프레임에 뚫린 구멍을 알파에서 뽑는다. 사람이 자를 댈 필요가 없다.
-
-    카드 원화는 그림 영역만 지워 둔 완성 카드라, 투명한 곳이 곧 사진이 들어갈
-    자리다. 다만 **모서리 둥근 부분도 투명**해서 그냥 bbox 를 잡으면 카드 전체가
-    나온다. 바깥에서 이어진 투명은 먼저 지우고, 남은 안쪽 구멍만 잰다.
-
-    문턱이 높을수록 구멍 가장자리의 반투명한 줄까지 구멍으로 센다. 배추 프레임에서
-    문턱을 8~254 로 바꿔 가며 재보니 값이 0.4%p 안에서만 움직였고, 200 일 때 앱이
-    손으로 잰 값과 제일 가까웠다 (5.03/10.36/90.40/81.25 vs 4.91/10.28/90.51/81.58).
-    """
-    rgba = frame.convert("RGBA")
-    w, h = rgba.size
-    mask = rgba.getchannel("A").point(lambda v: 255 if v < threshold else 0)
-
-    # 네 귀퉁이에서 물을 부어 바깥과 이어진 투명(모서리 라운딩)을 지운다.
-    flood = mask.copy()
-    for seed in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)):
-        if flood.getpixel(seed):
-            ImageDraw.floodfill(flood, seed, 0)
-
-    box = flood.getbbox()
-    if box is None:
-        raise WindowTableError("프레임에 뚫린 구멍이 없다 — 그림창이 지워진 원화가 맞나")
-    left, top, right, bottom = box
-    return _pct((left, top, right - left, bottom - top), (w, h))
-
-
 def trim_alpha(img: Image.Image, *, threshold: int = 8) -> Image.Image:
     """알파 bbox 로 잘라 낸다 (neo-hologram-layers.py 의 trim 과 같은 일).
 
@@ -204,6 +177,104 @@ def contain(subject: tuple[int, int], window: tuple[int, int, int, int],
     # 구멍 밖으로는 안 나간다 — 나가면 프레임에 잘린다.
     y = max(wy, min(y, wy + wh - nh))
     return (x, y, nw, nh)
+
+
+def _holes(frame: Image.Image, threshold: int) -> Image.Image:
+    """바깥에서 이어진 투명(모서리 라운딩)을 지우고 남은 안쪽 구멍만 남긴다."""
+    rgba = frame.convert("RGBA")
+    w, h = rgba.size
+    mask = rgba.getchannel("A").point(lambda v: 255 if v < threshold else 0)
+    for seed in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)):
+        if mask.getpixel(seed):
+            ImageDraw.floodfill(mask, seed, 0)
+    return mask
+
+
+def extract_backing_box(frame: Image.Image, *, threshold: int = 200) -> Rect:
+    """뒤가 비치는 자리 **전부**를 감싸는 상자. 앱이 `window` 라고 부르는 값이다.
+
+    모서리만 빼고 다 훑는다. 창이 뚫린 데보다 커도 상관없다 — 넘치는 만큼은 틀의
+    불투명한 부분이 가린다.
+    """
+    mask = _holes(frame, threshold)
+    box = mask.getbbox()
+    if box is None:
+        raise WindowTableError("프레임에 뚫린 곳이 없다 — 그림창이 지워진 원화가 맞나")
+    left, top, right, bottom = box
+    return _pct((left, top, right - left, bottom - top), frame.size)
+
+
+def _largest_rect(mask: np.ndarray) -> tuple[int, int, int, int]:
+    """True 로만 채워진 제일 넓은 직사각형 (x, y, w, h).
+
+    행마다 "위로 몇 칸 연속인가" 히스토그램을 만들고, 그 히스토그램의 최대 직사각형을
+    스택으로 찾는 고전적인 방법이다.
+    """
+    h, w = mask.shape
+    heights = np.zeros(w + 1, dtype=np.int64)   # 끝에 0 하나를 두면 스택이 저절로 비워진다
+    best = (0, (0, 0, 0, 0))
+
+    for y in range(h):
+        row = mask[y]
+        heights[:w] = np.where(row, heights[:w] + 1, 0)
+        stack: list[int] = []
+        for x in range(w + 1):
+            while stack and heights[stack[-1]] >= heights[x]:
+                top = stack.pop()
+                left = stack[-1] + 1 if stack else 0
+                height = int(heights[top])
+                width = x - left
+                area = height * width
+                if area > best[0]:
+                    best = (area, (left, y - height + 1, width, height))
+            stack.append(x)
+
+    if best[0] == 0:
+        raise WindowTableError("프레임에 뚫린 구멍이 없다 — 그림창이 지워진 원화가 맞나")
+    return best[1]
+
+
+def _grow(mask: np.ndarray, box: tuple[int, int, int, int],
+          min_fraction: float) -> tuple[int, int, int, int]:
+    """꽉 찬 직사각형에서 시작해 "거의 다 투명한" 줄까지 넓힌다.
+
+    그림창은 모서리가 둥글어서 위아래 몇 줄이 100% 투명하지 않다. 꽉 찬 직사각형만
+    쓰면 그만큼 짧게 잡힌다. 반대로 아무 줄이나 먹으면 바로 아래 붙어 있는 기술 줄
+    (`LEAFY LOOK`)까지 삼킨다 — 배추에서 재보면 그림창 본체는 가로로 89% 투명이고
+    기술 줄은 27% 라 그 사이에서 갈린다.
+    """
+    h, w = mask.shape
+    x, y, bw, bh = box
+    for _ in range(2):
+        while y > 0 and mask[y - 1, x:x + bw].mean() >= min_fraction:
+            y -= 1
+            bh += 1
+        while y + bh < h and mask[y + bh, x:x + bw].mean() >= min_fraction:
+            bh += 1
+        while x > 0 and mask[y:y + bh, x - 1].mean() >= min_fraction:
+            x -= 1
+            bw += 1
+        while x + bw < w and mask[y:y + bh, x + bw].mean() >= min_fraction:
+            bw += 1
+    return (x, y, bw, bh)
+
+
+def extract_art_window(frame: Image.Image, *, threshold: int = 200,
+                       min_fraction: float = 0.6) -> Rect:
+    """사진이 들어갈 **그림창** 하나만 뽑는다. 사람이 자를 댈 필요가 없다.
+
+    구멍 전부의 경계상자를 잡으면 안 된다. 틀에는 그림창 말고도 뚫린 데가 있다 —
+    원래 카드에서 그림 위에 얹혀 있던 반투명 판(제목 오른쪽 판 · 기술 줄 · 스탯 줄)
+    자리라, 그림을 지울 때 뒤가 같이 비었기 때문이다(`cards.mjs` 에 배추의 실측이
+    적혀 있다). 그걸 다 삼키면 상자가 카드 전체만 해지고, 사진이 거기 맞춰 커져
+    얼굴이 인쇄물 뒤로 가린다.
+
+    그 판들은 그림창과 **이어져 있어서** 성분으로도 안 갈린다 — 한 곳에서 물을 부으면
+    구멍이 전부 사라진다. 그래서 **꽉 찬 제일 넓은 직사각형**을 찾는다. 판들은 얇아서
+    면적으로 밀리고, 세로 한 줄만 훑는 방법과 달리 판이 그림창보다 길어도 안 속는다.
+    """
+    mask = np.asarray(_holes(frame, threshold), dtype=np.uint8) > 0
+    return _pct(_grow(mask, _largest_rect(mask), min_fraction), frame.size)
 
 
 def _cover(img: Image.Image, size: tuple[int, int]) -> Image.Image:

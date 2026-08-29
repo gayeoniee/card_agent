@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from PIL import Image
 
@@ -13,10 +15,19 @@ from src.compose import (
     template_for,
     trim_alpha,
 )
+from src.compose import extract_art_window, extract_backing_box
 from src.contract import Rect
 from src.crops import load_table
 from src.pixelize import STYLES
 from tests.fakes import fake_dog, fake_frame
+
+# 도감 원화는 git 밖이라(templates/cards/) 없을 수 있다. 있을 때만 도는 테스트가 있다.
+CABBAGE_FRAME = Path("templates/cards/cabbage-card-frame.webp")
+CABBAGE_SUBJECT = Path("templates/cards/cabbage-subject.webp")
+원화있음 = pytest.mark.skipif(
+    not (CABBAGE_FRAME.exists() and CABBAGE_SUBJECT.exists()),
+    reason="도감 원화가 없다 — README 의 '카드 원화는 어디에 있나' 참고",
+)
 
 
 def test_카드_열두장에_모두_그림창이_있다():
@@ -30,13 +41,43 @@ def test_배추_창_좌표는_앱_값_그대로다():
     assert (window.x, window.y, window.w, window.h) == (4.91, 10.28, 90.51, 81.58)
 
 
-def test_배추_구멍은_프레임에서_뽑은_값이다():
+def test_배추_그림창은_프레임에서_뽑은_값이다():
     """자를 대지 않는다 — 알파의 구멍이 곧 좌표다."""
-    art = template_for("cabbage").art
     assert template_for("cabbage").measured is True
-    # 앱이 손으로 잰 window 와 0.4%p 안에서 맞는다
-    for 뽑은값, 잰값 in ((art.x, 4.91), (art.y, 10.28), (art.w, 90.51), (art.h, 81.58)):
-        assert abs(뽑은값 - 잰값) < 0.4
+    art = template_for("cabbage").art
+    # cards.mjs 가 실측해 적어 둔 그림창은 y 14.39, h 63.16 이다
+    assert abs(art.y - 14.39) < 0.4 and abs(art.h - 63.16) < 0.7
+
+
+@원화있음
+def test_그림창은_받침_상자보다_작다():
+    """틀에는 그림창 말고도 뚫린 데가 있다 — 그걸 다 삼키면 개가 커져 인쇄물에 가린다."""
+    frame = Image.open(CABBAGE_FRAME)
+    art = extract_art_window(frame)
+    back = extract_backing_box(frame)
+    assert art.h < back.h - 10          # 세로로 확실히 작다
+    assert back.y <= art.y and art.y + art.h <= back.y + back.h
+
+
+@원화있음
+def test_그림창_추출이_앱_실측과_맞는다():
+    """제일 넓은 직사각형에서 키우는 방법이 사람이 잰 값과 몇 px 안에서 맞아야 한다."""
+    frame = Image.open(CABBAGE_FRAME)
+    art = extract_art_window(frame)
+    위, 아래 = art.y / 100 * frame.height, (art.y + art.h) / 100 * frame.height
+    assert abs(위 - 175) <= 8 and abs(아래 - 942) <= 8      # cards.mjs 의 실측 y 175~942
+
+
+@원화있음
+def test_손잡이_없이도_앱의_배치가_나온다():
+    """그림창에 꽉 채워 가운데 놓으면 앱이 손으로 잰 fit 이 나온다 — 보정값이 필요 없다."""
+    template = template_for("cabbage")
+    assert (template.inset, template.anchor_y) == (0.0, 0.5)
+    frame = Image.open(CABBAGE_FRAME)
+    subject = Image.open(CABBAGE_SUBJECT)
+    fit = compose_card(frame, subject, template.art).fit
+    for 나온값, 앱값 in ((fit.x, 6.06), (fit.y, 14.15), (fit.w, 87.43), (fit.h, 62.70)):
+        assert abs(나온값 - 앱값) < 1.0
 
 
 def test_원화_이름은_지정하지_않으면_id_에서_짓는다():
