@@ -15,6 +15,7 @@ models/
 
 # 카드 원화 — git 밖에 둔다 (DAENGS_dev/tools/art-src 와 같은 취급)
 templates/cards/
+templates/fonts/
 
 .venv/
 __pycache__/

@@ -59,6 +59,7 @@ class CardTemplate:
     measured: bool   # 진짜 프레임에서 뽑은 값인가, 아직 자리값인가
     inset: float = 0.0      # 구멍에서 안쪽으로 비울 %
     anchor_y: float = 0.5   # 누끼 가운데가 구멍 높이의 어디에 오는지
+    title: Rect | None = None   # 제목바. 없으면 이름을 못 찍는다
 
     def frame_path(self, cards_dir: Path = CARDS_DIR) -> Path:
         return Path(cards_dir) / self.frame
@@ -92,6 +93,7 @@ def load_windows(path: Path = WINDOWS_TOML) -> dict[str, CardTemplate]:
             measured=bool(row.get("measured", False)),
             inset=float(row.get("inset", 0.0)),
             anchor_y=float(row.get("anchor_y", 0.5)),
+            title=_rect(card_id, "title", row, path) if "title" in row else None,
         )
 
     from src.crops import load_table  # 순환 import 를 피해 여기서 부른다

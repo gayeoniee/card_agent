@@ -53,6 +53,7 @@ def run(
     cards_dir: Path = CARDS_DIR,
     style: PixelStyle | None = None,
     card_id: str | None = None,
+    card_name: str | None = None,
     music=None,
     music_seconds: int = 30,
     dog_key: str | None = None,
@@ -73,6 +74,18 @@ def run(
     # ④⑤ 화풍 맞춤 + 카드 합성 (fit 은 여기서 나온다)
     template = template_for(crop.id)
     frame = open_frame(template, cards_dir)
+    if card_name:
+        # 카드에 강아지 이름을 찍는다. 인쇄된 이름을 지우고 다시 찍는 일이라
+        # 설비가 없으면 원래 제목 그대로 나간다 — 카드를 못 내는 것보다 낫다.
+        from src.title import TitleUnavailable, personalize_title
+
+        if template.title is None:
+            print(f"제목바 좌표가 없어 이름을 못 찍는다: {crop.id}", file=sys.stderr)
+        else:
+            try:
+                frame = personalize_title(frame, template.title, card_name)
+            except TitleUnavailable as exc:
+                print(f"이름 없이 간다: {exc}", file=sys.stderr)
     # 뒷그림이 있으면 구멍 배경으로 깐다. 없으면 구멍이 비어 검게 보인다.
     back_path = Path(cards_dir) / f"{crop.id}-back.webp"
     back = Image.open(back_path).convert("RGBA") if back_path.exists() else None
@@ -159,6 +172,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--assets", type=Path, default=CARDS_DIR, help="카드 원화 폴더")
     ap.add_argument("--style", default=DEFAULT_STYLE, help="화풍 이름 (src/pixelize.py)")
     ap.add_argument("--card", default=None, help="작물을 직접 고른다 (생일 대신)")
+    ap.add_argument("--card-name", default=None,
+                    help="카드 제목에 찍을 이름. 인쇄된 이름을 지우고 다시 찍는다")
     ap.add_argument("--music", choices=("none", "mock"), default="none",
                     help="mock 은 네트워크·비용 없이 파이프라인 전체를 돌린다")
     ap.add_argument("--seconds", type=int, default=30)
@@ -178,6 +193,7 @@ def main(argv: list[str] | None = None) -> int:
         cards_dir=args.assets,
         style=style_by_name(args.style),
         card_id=args.card,
+        card_name=args.card_name,
         music=music,
         music_seconds=args.seconds,
     )

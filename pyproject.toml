@@ -18,6 +18,9 @@ cutout = [
     "onnxruntime>=1.29.0",
     "rembg>=2.0.67",
 ]
+title = [
+    "scikit-image>=0.24",
+]
 
 [tool.uv]
 package = false

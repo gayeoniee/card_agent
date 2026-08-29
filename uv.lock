@@ -61,6 +61,9 @@ cutout = [
     { name = "onnxruntime" },
     { name = "rembg" },
 ]
+title = [
+    { name = "scikit-image" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -77,10 +80,11 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "python-multipart", specifier = ">=0.0.32" },
     { name = "rembg", marker = "extra == 'cutout'", specifier = ">=2.0.67" },
+    { name = "scikit-image", marker = "extra == 'title'", specifier = ">=0.24" },
     { name = "soundfile", specifier = ">=0.14.0" },
     { name = "uvicorn", specifier = ">=0.52.4" },
 ]
-provides-extras = ["cutout"]
+provides-extras = ["cutout", "title"]
 
 [package.metadata.requires-dev]
 dev = [

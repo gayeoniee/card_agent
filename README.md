@@ -77,6 +77,28 @@ git clone --depth 1 https://github.com/SAJOYO/DAENGS_CARDS /tmp/cards
 cp /tmp/cards/art/cabbage-*.webp templates/cards/
 ```
 
+## 카드에 이름 찍기
+
+카드의 이름은 **그림에 인쇄돼 있다.** 강아지 이름을 찍으려면 인쇄된 이름을 지우고
+다시 찍는 수밖에 없다 (`src/title.py`). 폰트와 인페인팅 설비가 필요하다.
+
+```bash
+uv sync --extra title
+mkdir -p templates/fonts && cd templates/fonts
+curl -O https://fonts.gstatic.com/s/cinzel/v26/8vIU7ww63mVu7gtR-kwKxNvkNOjw-jHgTYo.ttf   # Cinzel-Bold.ttf 로 저장
+curl -O https://fonts.gstatic.com/s/notosanskr/v39/PbyxFmXiEBPT4ITbgNA5Cgms3VYcOA-vvnIzzg01eLQ.ttf  # NotoSansKR-Bold.ttf 로 저장
+```
+
+```bash
+uv run python -m src.pipeline ... --card-name "Neong Neo"
+```
+
+Cinzel 은 원본 제목의 Trajan 풍 세리프와 얼굴이 거의 같고, 한글 이름이 오면
+Noto Sans KR 로 자동으로 바꿔 찍는다. 설비가 없으면 **원래 제목 그대로** 나간다 —
+이름을 못 찍는다고 카드를 못 낼 이유는 없다.
+
+⚠ 지운 자리가 티 나는지, 글자가 원본과 붙는지는 **사람이 카드 크기로 봐야 한다.**
+
 그림창 좌표는 **재지 않는다.** 원화가 그림 영역만 투명하게 지운 완성 카드라
 알파의 구멍이 곧 좌표다.
 
