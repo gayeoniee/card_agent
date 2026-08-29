@@ -61,6 +61,8 @@ class Scene(Base):
     place: str = Field(min_length=1)
     seed: int
     motes: int = Field(ge=0)
+    # 앞에 크게 흐리게 지나가는 잎. 앱의 ImmersiveScene 에 있는 필드다.
+    leaves: int = Field(ge=0)
     dew: int = Field(ge=0)
     accent: HexColor
     accent2: HexColor

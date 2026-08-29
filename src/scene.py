@@ -14,11 +14,16 @@ from src.contract import Rect, Scene
 from src.crops import Crop
 
 # 앱의 seedOf 와 같은 값을 내야 먼지·이슬 배치가 앱에서 기대한 대로 굳는다.
-# 확인한 것은 "Kotlin String 의 해시"라는 것까지고, Kotlin/Java 의 String.hashCode
-# 규약(31 진법, UTF-16 코드 단위, 32비트 부호 있는 정수)을 그대로 따랐다.
-# 앱 구현이 이와 다르면 고칠 곳은 seed_of 한 함수뿐이다.
+# 앱 구현을 직접 보고 맞췄다 (Immersive.kt:113):
+#
+#     fun seedOf(text: String): Int = text.fold(7) { h, c -> h * 31 + c.code }
+#
+# **시작값이 0 이 아니라 7 이다.** Java 의 String.hashCode 규약으로 지레짐작했다가
+# 전부 다른 값을 내고 있었다. 나머지(31 진법 · UTF-16 코드 단위 · 32비트 넘침)는 같다.
 _INT32 = 1 << 32
 _INT31 = 1 << 31
+# 앱의 fold 시작값. 0 이 아니다.
+_SEED_INIT = 7
 
 # 장면 문구 후보. 씨로 고르므로 강아지마다 고정된다.
 FEATURES = (
@@ -37,17 +42,19 @@ TIMES = (
     "달 뜬 뒤",
 )
 
+# 앱의 기본값(motes 52 · leaves 7 · dew 15)을 가운데 두고 벌린 범위다.
 MOTES_RANGE = (40, 64)
+LEAVES_RANGE = (5, 10)
 DEW_RANGE = (10, 20)
 
 
 def seed_of(text: str) -> int:
-    """Kotlin/Java `String.hashCode` 와 같은 값.
+    """앱의 `seedOf` 와 같은 값 (Immersive.kt:113).
 
     UTF-16 코드 단위로 센다 — 이름에 이모지가 들어가면 파이썬의 코드포인트와
     갈라지는 자리다.
     """
-    h = 0
+    h = _SEED_INIT
     units = text.encode("utf-16-be")
     for i in range(0, len(units), 2):
         code = (units[i] << 8) | units[i + 1]
@@ -113,6 +120,7 @@ def build_scene(
         place=place_of(name, crop, seed),
         seed=seed,
         motes=rnd.randint(*MOTES_RANGE),
+        leaves=rnd.randint(*LEAVES_RANGE),
         dew=rnd.randint(*DEW_RANGE),
         accent=accent,
         accent2=accent2,

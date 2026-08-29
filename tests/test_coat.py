@@ -48,7 +48,7 @@ def test_같은_사진이면_같은_색이_나온다():
 
 def test_계약이_받는_모양의_hex_다():
     coat = coat_colors(fake_dog())
-    Scene(place="ㅁ", seed=1, motes=1, dew=1, accent=coat.accent, accent2=coat.accent2,
+    Scene(place="ㅁ", seed=1, motes=1, leaves=1, dew=1, accent=coat.accent, accent2=coat.accent2,
           card="c.webp", fit={"x": 1, "y": 1, "w": 1, "h": 1},
           window={"x": 1, "y": 1, "w": 1, "h": 1})
 

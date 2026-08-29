@@ -23,6 +23,7 @@ def sample() -> SceneDoc:
             place="네옹이의 이슬 맺힌 텃밭 · 해 뜨기 직전",
             seed=812734,
             motes=52,
+            leaves=7,
             dew=15,
             accent="#EEBE93",
             accent2="#F5D9BE",
