@@ -13,10 +13,15 @@ import tomllib
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw
 
 from src.contract import Rect
+from src.holes import Hole, HoleCard
+
+if TYPE_CHECKING:                      # cutout 이 이 파일의 trim_alpha 를 부른다.
+    from src.cutout import Face        # 모듈 단계에서 되부르면 순환 import 가 된다.
 from src.pixelize import PixelStyle, apply_style, scaled
 from src.version import REPO_ROOT
 
@@ -203,3 +208,108 @@ def save_webp(img: Image.Image, path: Path, *, quality: int = 92) -> Path:
     # 알파가 있는 카드라 lossless 를 쓰지 않으면 그림창 가장자리가 지저분해진다.
     img.save(path, format="WEBP", lossless=True, quality=quality, method=6)
     return path
+
+
+# ---------------------------------------------------------------------------
+# 얼굴 구멍에 끼우기 — `*-card-slots.webp` 용
+#
+# 위쪽 [compose_card] 는 직사각 그림창에 강아지 **전체**를 contain 으로 넣는다.
+# 아래는 타원 구멍에 **얼굴만** 넣는다. 원화의 성질이 달라서 방법도 다르다.
+#
+#     *-card-frame.webp   그림 영역이 통째로 비어 있다 → 전체를 넣고 남는 자리는 배경
+#     *-card-slots.webp   채소가 인쇄돼 있고 얼굴 자리만 비었다 → 구멍을 **채워야** 한다
+#
+# 뒤쪽은 남는 자리가 있으면 안 된다. 구멍 안이 비면 검은 초승달로 보인다.
+# 그래서 contain 이 아니라 **cover** 이고, 어디를 살릴지 정해야 한다.
+#
+# 앱의 `CardSlots.kt` 가 실기기에서 부딪혀 가며 정한 것이 셋 있고 그대로 가져온다.
+# **여기서 임의로 고치면 파이썬에서 좋아 보이는 것이 앱에서는 안 나온다.**
+#
+# 1. **비트맵 사각형이 아니라 `Face.core` 를 구멍에 맞춘다.** 사각형으로 맞추면 목
+#    아래로 흐려지는 꼬리까지 셈에 들어가서, 꼬리가 한쪽으로 퍼진 사진에서 머리가
+#    반대쪽으로 밀리고 구멍 한쪽이 통째로 빈다.
+# 2. **모자란 쪽에 맞춰 키운다** ([CORE_OVERFILL]). 딱 맞추면 실루엣이 타원 안으로
+#    파고드는 자리(귀 옆·이마 위)마다 구멍 속이 비친다.
+# 3. **세로는 가운데가 아니라 턱을 구멍 아래에 건다.** 구멍보다 크게 그리니 어딘가는
+#    잘려야 하는데, 이마와 귀가 잘리는 것은 괜찮고 **코가 잘리면 개로 안 보인다.**
+# ---------------------------------------------------------------------------
+
+#: 구멍보다 이만큼 넓게 그린다. 넘치는 만큼은 카드가 덮어서 테두리 틈을 막는다.
+CLIP_BLEED = 1.12
+
+#: 또렷한 얼굴을 구멍보다 이만큼 크게 잡는다. `CardSlots.kt` 와 같은 값.
+CORE_OVERFILL = 1.15
+
+
+def paste_in_hole(canvas: Image.Image, face: "Face", hole: Hole) -> Rect:
+    """[canvas] 의 [hole] 자리에 [face] 를 끼운다. 얼굴이 앉은 자리를 %로 돌려준다."""
+    size = canvas.size
+    W, H = size
+    cl, ct, cr, cb = face.core
+    core_w = cr - cl
+    if core_w <= 0 or cb - ct <= 0:
+        raise ValueError("또렷한 얼굴이 비었다 — 누끼가 통째로 실패했다")
+
+    cx, cy, rx0, ry0 = hole.px(size)
+    rx, ry = rx0 * CLIP_BLEED, ry0 * CLIP_BLEED
+
+    anchor = face.anchor_x if face.anchor_x is not None else cl + core_w / 2.0
+    chin = face.chin_y if face.chin_y is not None else float(cb)
+
+    # 세로로 구멍을 채워야 하는 것은 **턱 위쪽뿐이다.**
+    #
+    # 턱을 구멍 아래에 걸어 놓고 스케일은 턱 아래(목·가슴)까지 포함한 높이로 재면,
+    # 정작 구멍에 들어갈 부분이 모자라서 **구멍 위가 빈다.** 가지·피망·상추에서
+    # 검은 초승달로 남았다.
+    above_chin = max(chin - ct, 1.0)
+    scale = max(rx * 2.0 / core_w, ry * 2.0 / above_chin) * CORE_OVERFILL
+
+    img = Image.fromarray(face.plain, "RGBA")
+    big = img.resize((max(1, round(img.width * scale)), max(1, round(img.height * scale))),
+                     Image.Resampling.LANCZOS)
+
+    left = round(cx - anchor * scale)
+    top = round(cy + ry0 - chin * scale)
+
+    # 구멍(타원)으로 자른다. 앱의 `clipPath(addOval(...))` 에 해당한다.
+    layer = Image.new("RGBA", size, (0, 0, 0, 0))
+    layer.paste(big, (left, top), big)
+    clip = Image.new("L", size, 0)
+    ImageDraw.Draw(clip).ellipse([cx - rx, cy - ry, cx + rx, cy + ry], fill=255)
+    layer.putalpha(Image.composite(layer.getchannel("A"), Image.new("L", size, 0), clip))
+    canvas.alpha_composite(layer)
+
+    return _pct((left, top, big.width, big.height), size)
+
+
+def compose_face_hole(
+    art: Image.Image,
+    face: "Face",
+    card: HoleCard,
+    *,
+    corner_radius_pct: float = 0.0,
+) -> Composed:
+    """자리를 비운 카드 원화의 구멍에 얼굴을 끼운다.
+
+    **얼굴을 카드 위가 아니라 아래에 둔다.** 그래야 구멍 테두리의 잎이 얼굴 가장자리를
+    물어서 끼어 든 것으로 보이고, 누끼에서 제일 어려운 털 가장자리가 그 밑으로 숨는다.
+    위에 얹으면 오려 붙인 스티커가 된다.
+
+    같은 얼굴이 **두 자리**(큰 그림창 · 왼쪽 위 아바타)에 들어간다. 누끼는 한 번만
+    뜬다 — 카드를 몇 장 뽑아도 얼굴은 한 장이다.
+    """
+    art = art.convert("RGBA")
+    canvas = Image.new("RGBA", art.size, (0, 0, 0, 0))
+
+    fit = paste_in_hole(canvas, face, card.face)
+    if card.avatar is not None:
+        paste_in_hole(canvas, face, card.avatar)
+
+    out = Image.alpha_composite(canvas, art)
+    out = round_corners(out, corner_radius_pct)
+
+    cx, cy, rx, ry = card.face.cx, card.face.cy, card.face.rx, card.face.ry
+    window = Rect(x=round(cx - rx, 2), y=round(cy - ry, 2),
+                  w=round(rx * 2, 2), h=round(ry * 2, 2))
+    return Composed(card=out, subject=Image.fromarray(face.outlined, "RGBA"),
+                    fit=fit, window=window)

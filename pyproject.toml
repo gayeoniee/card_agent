@@ -18,6 +18,9 @@ cutout = [
     "onnxruntime>=1.29.0",
     "rembg>=2.0.67",
 ]
+facebox = [
+    "opencv-python-headless>=4.9",
+]
 
 [tool.uv]
 package = false

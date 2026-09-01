@@ -1,6 +1,9 @@
 # 강아지 사진과 생성물은 커밋하지 않는다
 photos/
 out/
+
+# dog-pose 데이터셋 386MB. tools/fetch_dog_pose.py 로 다시 만든다.
+.data/
 *.jpg
 *.jpeg
 *.png
