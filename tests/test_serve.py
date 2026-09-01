@@ -205,12 +205,12 @@ def test_원화가_한_장만_있어도_열두달이_다_돈다(tmp_path):
     """확인된 배추 원화만 있는 폴더에서 나머지 11달이 503 으로 죽으면 안 된다."""
     cards = tmp_path / "cards"
     cards.mkdir()
-    배추 = template_for("baechu")
+    배추 = template_for("cabbage")
     fake_frame(배추.window).save(cards / 배추.frame)
 
     app = serve.create_app(cards_dir=cards, out_dir=tmp_path / "out", mock=True)
     with TestClient(app) as client:
-        for 생일, 카드 in (("2023-12-03", "baechu"), ("2023-05-14", "danhobak")):
+        for 생일, 카드 in (("2023-12-03", "cabbage"), ("2023-05-14", "danhobak")):
             res = client.post("/cards", files={"photo": ("dog.png", png_bytes(), "image/png")},
                               data={"name": "네옹", "birthday": 생일})
             job = wait(client, res.json()["id"])
@@ -220,7 +220,7 @@ def test_원화가_한_장만_있어도_열두달이_다_돈다(tmp_path):
 def test_진짜_원화가_있으면_자리표_대신_그것을_쓴다(tmp_path):
     cards = tmp_path / "cards"
     cards.mkdir()
-    배추 = template_for("baechu")
+    배추 = template_for("cabbage")
     fake_frame(배추.window).save(cards / 배추.frame)
 
     serve.create_app(cards_dir=cards, out_dir=tmp_path / "out", mock=True)

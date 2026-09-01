@@ -47,7 +47,7 @@ def test_나온_JSON_이_계약을_만족한다(tmp_path, cards_dir):
 
 
 def test_생일이_카드를_고른다(tmp_path, cards_dir):
-    for month, want in ((5, "danhobak"), (12, "baechu"), (1, "sigeumchi")):
+    for month, want in ((5, "danhobak"), (12, "cabbage"), (1, "pepper")):
         result = pipeline.run(
             fake_dog(), "네옹", date(2023, month, 3),
             out_dir=tmp_path / f"out{month}", cards_dir=cards_dir,
@@ -57,10 +57,10 @@ def test_생일이_카드를_고른다(tmp_path, cards_dir):
 
 def test_카드를_직접_고를_수도_있다(tmp_path, cards_dir):
     result = pipeline.run(
-        fake_dog(), "네옹", date(2023, 5, 14), card_id="oksusu",
+        fake_dog(), "네옹", date(2023, 5, 14), card_id="cucumber",
         out_dir=tmp_path / "out", cards_dir=cards_dir,
     )
-    assert result.crop.id == "oksusu" and result.doc.card.no == 8
+    assert result.crop.id == "cucumber" and result.doc.card.no == 8
 
 
 def test_fit_이_그림창_안에_들어간다(tmp_path, cards_dir):

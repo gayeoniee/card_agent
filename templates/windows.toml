@@ -13,26 +13,26 @@
 # frame : 카드 원화 파일 이름. 없으면 "{id}-card-frame.webp" 로 본다.
 #         원화는 git 밖(templates/cards/)에 둔다.
 
-[baechu]      # No.01 — 확인된 값
+[cabbage]      # No.01 — 확인된 값
 frame = "cabbage-card-frame.webp"
 x = 4.91
 y = 10.28
 w = 90.51
 h = 81.58
 
-[sigeumchi]   # No.02 — 자리값 (재야 함)
+[pepper]   # No.02 — 자리값 (재야 함)
 x = 4.91
 y = 10.28
 w = 90.51
 h = 81.58
 
-[daepa]       # No.03 — 자리값 (재야 함)
+[eggplant]       # No.03 — 자리값 (재야 함)
 x = 4.91
 y = 10.28
 w = 90.51
 h = 81.58
 
-[buchu]       # No.04 — 자리값 (재야 함)
+[carrot]       # No.04 — 자리값 (재야 함)
 x = 4.91
 y = 10.28
 w = 90.51
@@ -44,43 +44,43 @@ y = 10.28
 w = 90.51
 h = 81.58
 
-[sangchu]     # No.06 — 자리값 (재야 함)
+[mushroom]     # No.06 — 자리값 (재야 함)
 x = 4.91
 y = 10.28
 w = 90.51
 h = 81.58
 
-[oi]          # No.07 — 자리값 (재야 함)
+[broccoli]          # No.07 — 자리값 (재야 함)
 x = 4.91
 y = 10.28
 w = 90.51
 h = 81.58
 
-[oksusu]      # No.08 — 자리값 (재야 함)
+[cucumber]      # No.08 — 자리값 (재야 함)
 x = 4.91
 y = 10.28
 w = 90.51
 h = 81.58
 
-[gaji]        # No.09 — 자리값 (재야 함)
+[spinach]        # No.09 — 자리값 (재야 함)
 x = 4.91
 y = 10.28
 w = 90.51
 h = 81.58
 
-[goguma]      # No.10 — 자리값 (재야 함)
+[sweet-potato]      # No.10 — 자리값 (재야 함)
 x = 4.91
 y = 10.28
 w = 90.51
 h = 81.58
 
-[danggeun]    # No.11 — 자리값 (재야 함)
+[tomato]    # No.11 — 자리값 (재야 함)
 x = 4.91
 y = 10.28
 w = 90.51
 h = 81.58
 
-[mu]          # No.12 — 자리값 (재야 함)
+[lettuce]          # No.12 — 자리값 (재야 함)
 x = 4.91
 y = 10.28
 w = 90.51

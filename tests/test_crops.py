@@ -18,7 +18,7 @@ def test_도감번호와_id_가_겹치지_않는다():
 
 def test_배추는_No_01_이다():
     """앱의 이머시브가 No.01 배추다 — 표에서 확인된 유일한 값."""
-    baechu = next(c for c in load_table().values() if c.id == "baechu")
+    baechu = next(c for c in load_table().values() if c.id == "cabbage")
     assert baechu.no == 1
 
 

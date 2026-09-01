@@ -25,12 +25,12 @@ def test_카드_열두장에_모두_그림창이_있다():
 
 
 def test_배추_그림창은_앱에서_확인된_값이다():
-    window = template_for("baechu").window
+    window = template_for("cabbage").window
     assert (window.x, window.y, window.w, window.h) == (4.91, 10.28, 90.51, 81.58)
 
 
 def test_원화_이름은_지정하지_않으면_id_에서_짓는다():
-    assert template_for("baechu").frame == "cabbage-card-frame.webp"
+    assert template_for("cabbage").frame == "cabbage-card-frame.webp"
     assert template_for("danhobak").frame == "danhobak-card-frame.webp"
 
 
@@ -49,7 +49,7 @@ def test_contain_은_창_밖으로_나가지_않는다():
 
 def test_fit_은_재는_값이_아니라_코드가_뱉는_값이다():
     """그림창을 상수로 두고 누끼를 맞추면 fit 이 나온다 — 방향을 뒤집은 자리."""
-    window = template_for("baechu").window
+    window = template_for("cabbage").window
     composed = compose_card(fake_frame(window), fake_dog(), window)
     fit = composed.fit
     assert window.x <= fit.x and window.y <= fit.y
@@ -59,7 +59,7 @@ def test_fit_은_재는_값이_아니라_코드가_뱉는_값이다():
 
 
 def test_fit_이_원본_비율을_지킨다():
-    window = template_for("baechu").window
+    window = template_for("cabbage").window
     frame = fake_frame(window, (600, 840))
     dog = fake_dog((400, 200))          # trim 하면 320x120 짜리 타원
     composed = compose_card(frame, dog, window)
@@ -80,7 +80,7 @@ def test_강아지가_그림창_안에만_보인다():
 
 def test_화풍은_그림창_크기로_줄인_뒤_입힌다():
     """먼저 입히고 줄이면 칸이 보간으로 뭉개진다."""
-    window = template_for("baechu").window
+    window = template_for("cabbage").window
     frame = fake_frame(window)
     plain = compose_card(frame, fake_dog(), window)
     pixel = compose_card(frame, fake_dog(), window, style=STYLES["pixel-hard"])
@@ -110,25 +110,25 @@ def test_모서리를_깎으면_귀퉁이가_투명해진다():
 
 def test_원화가_없으면_곱게_알린다(tmp_path):
     with pytest.raises(CardArtMissing):
-        open_frame(template_for("baechu"), tmp_path)
+        open_frame(template_for("cabbage"), tmp_path)
 
 
 def test_그림창이_카드_밖이면_표를_읽다가_죽는다(tmp_path):
     broken = tmp_path / "windows.toml"
-    broken.write_text("[baechu]\nx = 50\ny = 0\nw = 90\nh = 10\n", encoding="utf-8")
+    broken.write_text("[cabbage]\nx = 50\ny = 0\nw = 90\nh = 10\n", encoding="utf-8")
     with pytest.raises(WindowTableError):
         load_windows(broken)
 
 
 def test_카드가_빠지면_표를_읽다가_죽는다(tmp_path):
     broken = tmp_path / "windows.toml"
-    broken.write_text("[baechu]\nx = 1\ny = 1\nw = 90\nh = 90\n", encoding="utf-8")
+    broken.write_text("[cabbage]\nx = 1\ny = 1\nw = 90\nh = 90\n", encoding="utf-8")
     with pytest.raises(WindowTableError):
         load_windows(broken)
 
 
 def test_webp_는_알파를_잃지_않는다(tmp_path):
-    window = template_for("baechu").window
+    window = template_for("cabbage").window
     card = compose_card(fake_frame(window), fake_dog(), window, corner_radius_pct=6).card
     path = save_webp(card, tmp_path / "card.webp")
     assert Image.open(path).convert("RGBA").getpixel((0, 0))[3] == 0
