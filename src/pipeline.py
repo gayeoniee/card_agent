@@ -19,7 +19,7 @@ from PIL import Image
 from src.coat import coat_colors
 from src.compose import CARDS_DIR, compose_card, open_frame, save_webp, template_for
 from src.contract import SceneDoc
-from src.crops import Crop, crop_for_birthday, crop_for_month
+from src.crops import Crop, crop_by_id, draw_crop
 from src.cutout import cutout
 from src.pixelize import DEFAULT_STYLE, PixelStyle, style_by_name
 from src.version import agent_version
@@ -63,8 +63,11 @@ def run(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # ③ 작물 — 생일 월 하나로 정해진다
-    crop = crop_for_month(_card_month(card_id)) if card_id else crop_for_birthday(birthday)
+    # ③ 작물 — 12장 중 **랜덤**이다 (CA-017). --card 로 직접 고를 수도 있다.
+    #
+    # 생일은 여기서 안 본다. 카드가 바뀌어도 scene.json 에 뽑은 결과가 박히므로,
+    # 한 번의 run() = 한 번의 뽑기다.
+    crop = crop_by_id(card_id) if card_id else draw_crop()
 
     # ① 누끼 → ② 털색
     cut = cutout(photo)
@@ -114,15 +117,6 @@ def run(
         doc=doc, out_dir=out_dir, card_path=card_path, subject_path=subject_path,
         scene_path=scene_path, bgm_path=bgm_path, crop=crop,
     )
-
-
-def _card_month(card_id: str) -> int:
-    from src.crops import load_table
-
-    for month, crop in load_table().items():
-        if crop.id == card_id:
-            return month
-    raise ValueError(f"모르는 카드 id 다: {card_id}")
 
 
 def _make_music(music, out_dir: Path, crop: Crop, name: str, seconds: int) -> Path | None:

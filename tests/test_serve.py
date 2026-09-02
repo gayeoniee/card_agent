@@ -61,7 +61,8 @@ def test_상태를_물어보면_결과가_나온다(client):
     res = client.post("/cards", files={"photo": ("dog.png", png_bytes(), "image/png")},
                       data={"name": "네옹", "birthday": "2023-05-14"})
     job = wait(client, res.json()["id"])
-    assert job["scene"]["card"]["id"] == "danhobak"
+    # 카드는 랜덤이라(CA-017) 어느 것인지가 아니라 **표 안의 것인지**를 본다.
+    assert job["scene"]["card"]["id"] in {c.id for c in load_table().values()}
     assert job["scene"]["schema"] == 1
     assert "card.webp" in job["files"]
 
@@ -201,20 +202,30 @@ def test_거절한_요청은_일감도_파일도_안_남긴다(client, tmp_path)
     assert 남은_것 == []
 
 
-def test_원화가_한_장만_있어도_열두달이_다_돈다(tmp_path):
-    """확인된 배추 원화만 있는 폴더에서 나머지 11달이 503 으로 죽으면 안 된다."""
+def test_원화가_한_장만_있어도_어느_카드가_뽑히든_돈다(tmp_path):
+    """확인된 배추 원화만 있는 폴더에서 나머지 11장이 503 으로 죽으면 안 된다.
+
+    카드는 랜덤이라(CA-017) **어느 것이 뽑힐지 고를 수 없다.** 그래서 여러 번 눌러
+    여러 카드가 나오게 하고, 그 전부가 성공하는지를 본다. 자리표 카드를 12장 전부에
+    만들어 두는 `placeholder_cards()` 가 이걸 받쳐 준다.
+    """
     cards = tmp_path / "cards"
     cards.mkdir()
     배추 = template_for("cabbage")
     fake_frame(배추.window).save(cards / 배추.frame)
 
+    표 = {c.id for c in load_table().values()}
     app = serve.create_app(cards_dir=cards, out_dir=tmp_path / "out", mock=True)
+    나온_카드 = set()
     with TestClient(app) as client:
-        for 생일, 카드 in (("2023-12-03", "cabbage"), ("2023-05-14", "danhobak")):
+        for _ in range(8):
             res = client.post("/cards", files={"photo": ("dog.png", png_bytes(), "image/png")},
-                              data={"name": "네옹", "birthday": 생일})
+                              data={"name": "네옹", "birthday": "2023-05-14"})
             job = wait(client, res.json()["id"])
-            assert job["scene"]["card"]["id"] == 카드
+            assert job["status"] == "done", job
+            나온_카드.add(job["scene"]["card"]["id"])
+    assert 나온_카드 <= 표
+    assert len(나온_카드) > 1, "여덟 번 눌렀는데 한 장만 나왔다 — 뽑기가 고정돼 있다"
 
 
 def test_진짜_원화가_있으면_자리표_대신_그것을_쓴다(tmp_path):

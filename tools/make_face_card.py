@@ -16,10 +16,11 @@
 때 파이프라인 나머지는 한 줄도 안 바뀐다. 정답 라벨은 "모델이 완벽했을 때"라서
 여기서 나온 카드가 이 접근의 **상한**이다.
 
-## 카드는 뽑는 것이 아니라 생일이 정한다
+## 카드는 랜덤이다
 
-CA-004 다. 카드가 12장이고 달도 12개라 1:1 로 떨어지므로 `--birthday` 하나면 카드가
-정해진다. `--dog` 는 그 규칙을 일부러 비켜서 **강아지 하나를 12장 전부에** 넣는다 —
+CA-017. `--seed` 는 어느 강아지를 볼지와 어느 카드가 나올지를 같이 고정한다 — 도구가
+같은 그림을 다시 내야 눈으로 비교가 되기 때문이고, 서비스 쪽(`src/pipeline.py`)은
+씨를 안 준다. `--dog` 는 뽑기를 아예 비켜서 **강아지 하나를 12장 전부에** 넣는다 —
 같은 얼굴이 카드마다 어떻게 달라 보이는지는 그렇게 놓고 봐야 보인다.
 
 ## 축소해서도 본다
@@ -32,7 +33,6 @@ HISTORY.md 11절이 "눈이 3픽셀이 되면서 무너졌다" 고 적은 자리
 import argparse
 import random
 import sys
-from datetime import date
 from pathlib import Path
 
 import numpy as np
@@ -45,7 +45,7 @@ from src import cutout  # noqa: E402
 from src import dogpose as kp  # noqa: E402
 from src import facebox as geo  # noqa: E402
 from src.compose import CARDS_DIR  # noqa: E402
-from src.crops import crop_for_birthday  # noqa: E402
+from src.crops import draw_crop  # noqa: E402
 from src.dogpose import DATASET_ROOT, load_split  # noqa: E402
 from src.holes import HoleCard, hole_card, load_holes  # noqa: E402
 
@@ -111,7 +111,6 @@ def main() -> int:
                     help="카드 원화 자리. git 밖이다")
     ap.add_argument("--n", type=int, default=12)
     ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("--birthday", default="2023-05-14", help="카드를 정한다 (CA-004)")
     ap.add_argument("--dog", help="이 강아지 하나로 **카드 전부**를 채운다 (val 의 stem)")
     ap.add_argument("--sheet", action="store_true", help="축소 크기 비교판도 낸다")
     args = ap.parse_args()
@@ -123,7 +122,6 @@ def main() -> int:
     if not args.from_label:
         ap.error("--from-label 또는 --model 중 하나가 필요합니다")
 
-    birthday = date.fromisoformat(args.birthday)
     samples = [s for s in load_split(args.split, args.root) if s.sane()]
     if not samples:
         print(f"{args.split} 가 비었습니다. tools/fetch_dog_pose.py 를 먼저 돌리세요.",
@@ -139,14 +137,12 @@ def main() -> int:
         # 장이고 카드만 바뀐다 (앱 PR #19: "누끼는 카드가 아니라 강아지에 붙는다").
         jobs = [(pick, c) for c in load_holes().values()]
     else:
-        chosen = random.Random(args.seed).sample(samples, min(args.n, len(samples)))
-        # 카드는 **생일이 정한다** (CA-004). 강아지마다 생일을 흉내 내려고 stem 으로
-        # 달을 고른다 — 데이터셋에 생일이 없어서다.
-        jobs = [
-            (s, hole_card(crop_for_birthday(
-                birthday.replace(month=random.Random(s.stem).randint(1, 12))).id))
-            for s in chosen
-        ]
+        rng = random.Random(args.seed)
+        chosen = rng.sample(samples, min(args.n, len(samples)))
+        # 카드는 **랜덤이다** (CA-017). --seed 는 어느 강아지를 볼지와 어느 카드가
+        # 나올지를 같이 고정한다 — 도구가 같은 그림을 다시 낼 수 있어야 눈으로
+        # 비교가 된다. 서비스 쪽은 씨를 안 준다.
+        jobs = [(s, hole_card(draw_crop(rng).id)) for s in chosen]
 
     OUT.mkdir(parents=True, exist_ok=True)
     made = skipped = ellipsed = missing = 0

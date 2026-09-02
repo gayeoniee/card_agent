@@ -1,7 +1,7 @@
 from datetime import date
 
 from src.contract import Rect
-from src.crops import crop_for_month
+from src.crops import crop_by_id
 from src.scene import (
     DEW_RANGE,
     MOTES_RANGE,
@@ -18,7 +18,7 @@ RECT = Rect(x=1, y=1, w=1, h=1)
 
 def scene(name="네옹", birthday=date(2023, 5, 14), **kw):
     return build_scene(
-        name=name, birthday=birthday, crop=crop_for_month(birthday.month),
+        name=name, birthday=birthday, crop=crop_by_id("danhobak"),   # 카드는 랜덤이라(CA-017) 여기서는 한 장을 못박는다
         accent="#EEBE93", accent2="#F5D9BE", fit=RECT, window=RECT,
         card="card.webp", **kw,
     )
@@ -59,7 +59,7 @@ def test_한글이_아닌_이름은_받침이_없는_것으로_본다():
 
 
 def test_장소_문구에_이름과_때가_들어간다():
-    place = place_of("네옹", crop_for_month(5), seed_of("네옹:2023-05-14"))
+    place = place_of("네옹", crop_by_id("danhobak"), seed_of("네옹:2023-05-14"))
     assert place.startswith("네옹이의 ")
     assert " · " in place
 

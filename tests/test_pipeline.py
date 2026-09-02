@@ -6,7 +6,7 @@ from PIL import Image
 from src import pipeline
 from src.compose import CardArtMissing, template_for
 from src.contract import SceneDoc
-from src.crops import crop_for_month
+from src.crops import load_table
 from src.pixelize import STYLES
 from tests.fakes import fake_dog, fake_frame
 
@@ -16,7 +16,7 @@ def cards_dir(tmp_path):
     """카드 원화는 git 밖이라 테스트 안에서 만든다."""
     cards = tmp_path / "cards"
     cards.mkdir()
-    for crop in crop_for_month.__globals__["load_table"]().values():
+    for crop in load_table().values():
         template = template_for(crop.id)
         fake_frame(template.window).save(cards / template.frame)
     return cards
@@ -33,8 +33,9 @@ def test_사진_이름_생일_셋이면_결과가_나온다(tmp_path, cards_dir)
 
 
 def test_나온_JSON_이_계약을_만족한다(tmp_path, cards_dir):
+    # 카드는 랜덤이라(CA-017) 계약을 볼 때는 **한 장을 못박고** 본다.
     result = pipeline.run(
-        fake_dog(color=(238, 190, 147)), "네옹", date(2023, 5, 14),
+        fake_dog(color=(238, 190, 147)), "네옹", date(2023, 5, 14), card_id="danhobak",
         out_dir=tmp_path / "out", cards_dir=cards_dir,
     )
     doc = SceneDoc.load(result.scene_path)
@@ -46,13 +47,30 @@ def test_나온_JSON_이_계약을_만족한다(tmp_path, cards_dir):
     assert doc.agent_version
 
 
-def test_생일이_카드를_고른다(tmp_path, cards_dir):
-    for month, want in ((5, "danhobak"), (12, "cabbage"), (1, "pepper")):
+def test_카드는_랜덤이다(tmp_path, cards_dir):
+    """생일이 정하던 것을 뒤집었다 (CA-017). **같은 강아지로 다시 돌리면 바뀐다.**
+
+    12장 균등이라 20번에 한 장만 나올 확률은 사실상 0 이다. 이 테스트가 깨지면
+    뽑기가 어딘가에서 고정돼 있다는 뜻이다.
+    """
+    ids = set()
+    for i in range(20):
         result = pipeline.run(
-            fake_dog(), "네옹", date(2023, month, 3),
-            out_dir=tmp_path / f"out{month}", cards_dir=cards_dir,
+            fake_dog(), "네옹", date(2023, 5, 14),
+            out_dir=tmp_path / f"out{i}", cards_dir=cards_dir,
         )
-        assert result.crop.id == want
+        ids.add(result.crop.id)
+    assert len(ids) > 1
+    assert ids <= {c.id for c in load_table().values()}
+
+
+def test_생일은_카드를_안_정한다(tmp_path, cards_dir):
+    """생일은 scene.json 에 그대로 남지만 어느 카드가 나올지는 안 정한다."""
+    result = pipeline.run(
+        fake_dog(), "네옹", date(2023, 3, 9),
+        out_dir=tmp_path / "out", cards_dir=cards_dir,
+    )
+    assert result.doc.dog.birthday == date(2023, 3, 9)
 
 
 def test_카드를_직접_고를_수도_있다(tmp_path, cards_dir):
@@ -74,8 +92,13 @@ def test_fit_이_그림창_안에_들어간다(tmp_path, cards_dir):
     assert fit.y + fit.h <= window.y + window.h + 0.01
 
 
-def test_같은_입력이면_같은_결과가_나온다(tmp_path, cards_dir):
-    kw = dict(cards_dir=cards_dir, style=STYLES["pixel"])
+def test_카드만_빼면_같은_입력이_같은_결과를_준다(tmp_path, cards_dir):
+    """**카드는 이제 랜덤이다** (CA-017). 나머지는 그대로 고정이어야 한다.
+
+    장면 씨는 강아지 id 에서 나오고(CA-007) 카드 선택과 별개다 — 카드가 랜덤이
+    되었다고 먼지·이슬 배치까지 흔들리면 안 된다. 그래서 카드를 못박고 본다.
+    """
+    kw = dict(cards_dir=cards_dir, style=STYLES["pixel"], card_id="danhobak")
     a = pipeline.run(fake_dog(), "네옹", date(2023, 5, 14), out_dir=tmp_path / "a", **kw)
     b = pipeline.run(fake_dog(), "네옹", date(2023, 5, 14), out_dir=tmp_path / "b", **kw)
     assert a.doc == b.doc
@@ -100,6 +123,7 @@ def test_CLI_로도_돈다(tmp_path, cards_dir, capsys):
     code = pipeline.main([
         "--photo", str(photo), "--name", "네옹", "--birthday", "2023-05-14",
         "--out", str(tmp_path / "out"), "--assets", str(cards_dir),
+        "--card", "danhobak",           # 랜덤이라 못박아야 뭐가 찍히는지 볼 수 있다
     ])
     assert code == 0
     assert "Danhobak" in capsys.readouterr().out
